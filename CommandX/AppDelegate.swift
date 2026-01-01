@@ -1,0 +1,519 @@
+// AppDelegate.swift
+// Command X
+//
+// Handles app lifecycle and global shortcut registration.
+
+import Cocoa
+import UserNotifications
+import ApplicationServices
+import CoreGraphics
+import SwiftUI
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var statusItem: NSStatusItem?
+    var popover: NSPopover?
+    var finderRunning = false
+    var finderIsFrontmost = false
+    var workspaceNotificationCenter: NotificationCenter?
+    
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Check if this is first launch
+        let isFirstLaunch = !UserDefaults.standard.bool(forKey: "hasLaunchedBefore")
+        if isFirstLaunch {
+            UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+            // Set default launch at login to true
+            UserDefaults.standard.set(true, forKey: "launchAtLogin")
+            // Request permissions on first launch
+            requestInitialPermissions()
+            
+            // Set launch at login for first launch
+            LaunchAtLoginManager.shared.isEnabled = true
+        }
+        
+        // Check accessibility permission status
+        checkAccessibilityPermission()
+        
+        // Set up menu bar icon and popover (initially hidden)
+        NSApp.setActivationPolicy(.accessory)
+        
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem?.button {
+            // Use scissors icon from SF Symbols
+            if #available(macOS 11.0, *) {
+                button.image = NSImage(systemSymbolName: "scissors", accessibilityDescription: "Command X")
+            } else {
+                // Fallback for older macOS versions
+                button.image = NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
+            }
+            button.action = #selector(togglePopover(_:))
+            button.target = self
+        }
+        
+        popover = NSPopover()
+        popover?.contentViewController = NSHostingController(rootView: ContentView())
+        popover?.behavior = .transient
+        
+        // Set up Finder monitoring
+        setupFinderMonitoring()
+        
+        // Check initial Finder status
+        updateFinderStatus()
+        
+        // Delay launch at login setup to avoid issues during app launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let shouldLaunch = UserDefaults.standard.bool(forKey: "launchAtLogin")
+            LaunchAtLoginManager.shared.isEnabled = shouldLaunch
+        }
+    }
+
+    @objc func togglePopover(_ sender: Any?) {
+        if let button = statusItem?.button {
+            if popover?.isShown == true {
+                popover?.performClose(sender)
+            } else {
+                popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            }
+        }
+    }
+
+    private func handleCut() {
+        // Hotkey triggered
+        print("handleCut: Command+X pressed")
+        
+        // Double-check that Finder is running and frontmost (should already be true since hotkeys are only registered then)
+        let finderRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.finder" }
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let isFinderFrontmost = frontApp?.bundleIdentifier == "com.apple.finder"
+        
+        if !finderRunning || !isFinderFrontmost {
+            print("Finder not active, ignoring cut command")
+            return
+        }
+        
+        // Play sound if enabled
+        let soundEnabled = UserDefaults.standard.object(forKey: "cutSoundEnabled") as? Bool ?? true
+        if soundEnabled {
+            NSSound(named: NSSound.Name("Funk"))?.play()
+        }
+        tryGetFinderSelectionAndCut(retryCount: 0)
+    }
+
+    private func ensureFinderIsRunningAndCut(retryCount: Int) {
+        let finderRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.finder" }
+        if finderRunning {
+            tryGetFinderSelectionAndCut(retryCount: 0)
+            return
+        }
+        // Try to launch Finder if not running
+        if let finderURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.finder") {
+            let config = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.openApplication(at: finderURL, configuration: config, completionHandler: nil)
+        }
+        // Wait and retry up to 20 times (10 seconds total)
+        if retryCount < 20 {
+            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Waiting for Finder to launch... (\(retryCount+1)/20)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.ensureFinderIsRunningAndCut(retryCount: retryCount + 1)
+            }
+        } else {
+            let msg = "Finder did not launch in time. Please open Finder and try again."
+            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+            showUserNotification(title: "Command X", message: msg)
+        }
+    }
+
+    private func tryGetFinderSelectionAndCut(retryCount: Int) {
+        var error: NSDictionary?
+        // AppleScript to get Finder selection
+        let script = """
+        tell application "Finder"
+            activate
+            try
+                if exists front window then
+                    set sel to selection of front window
+                else
+                    set sel to selection
+                end if
+            on error
+                set sel to selection
+            end try
+            if (count of sel) is 0 then
+                return "NO_SELECTION"
+            end if
+            set output to ""
+            repeat with f in sel
+                set output to output & POSIX path of (f as alias) & "\n"
+            end repeat
+            return output
+        end tell
+        """
+        if let appleScript = NSAppleScript(source: script) {
+            if let output = appleScript.executeAndReturnError(&error).stringValue {
+                if output == "NO_SELECTION" {
+                    showUserNotification(title: "Command X", message: "No files or folders selected in Finder.")
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "No files or folders selected in Finder.")
+                } else {
+                    // Parse POSIX paths and set pasteboard with URLs and cut flag
+                    let paths = output.split(separator: "\n").map { String($0) }.filter { !$0.isEmpty }
+                    let urls = paths.map { URL(fileURLWithPath: $0) }
+                    if !urls.isEmpty {
+                        // Store in our manager
+                        FileOperationManager.shared.cut(urls: urls)
+                        // Write to general pasteboard
+                        let pb = NSPasteboard.general
+                        pb.clearContents()
+                        _ = pb.writeObjects(urls as [NSPasteboardWriting])
+                        pb.setString("1", forType: NSPasteboard.PasteboardType("com.apple.finder.cut"))
+
+                        showUserNotification(title: "Command X", message: "Cut: Finder selection copied. Use Command+V to paste (move).")
+                        NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Cut: Finder selection copied. Use Command+V to paste (move).")
+                    } else {
+                        showUserNotification(title: "Command X", message: "No files or folders selected in Finder.")
+                        NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "No files or folders selected in Finder.")
+                    }
+                }
+            } else if let errorDict = error, let errorNum = errorDict[NSAppleScript.errorNumber] as? Int, errorNum == -600, retryCount < 10 {
+                // Finder not running yet, retry after delay
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Finder not running yet, retrying \(retryCount+1)/10...")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                    self.tryGetFinderSelectionAndCut(retryCount: retryCount + 1)
+                }
+                return
+            } else if let error = error {
+                let msg = "AppleScript error: \(error)"
+                print(msg)
+                // Post full error dictionary to UI for debugging
+                let fullError = String(describing: error)
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: fullError)
+                showUserNotification(title: "Command X", message: "Failed to get Finder selection. AppleScript error.")
+                // Notify UI to show permission alert
+                NotificationCenter.default.post(name: Notification.Name("CommandXPermissionError"), object: nil)
+            }
+        } else {
+            let msg = "Failed to create AppleScript"
+            print(msg)
+            showUserNotification(title: "Command X", message: msg)
+            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+        }
+    }
+
+    private func showUserNotification(title: String, message: String) {
+        // Use UserNotifications framework for modern notifications
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = message
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+    }
+
+    private func showImmediateAlert(title: String, message: String) {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = message
+            alert.alertStyle = .informational
+            if let window = NSApp.windows.first {
+                alert.beginSheetModal(for: window) { _ in }
+            } else {
+                // Fallback modal dialog for debugging
+                alert.runModal()
+            }
+        }
+    }
+
+    private func logPasteDiagnostics() {
+        let pb = NSPasteboard.general
+        let cutFlag = pb.string(forType: NSPasteboard.PasteboardType("com.apple.finder.cut")) ?? ""
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let frontAppName = frontApp?.localizedName ?? "(none)"
+        let frontAppBundle = frontApp?.bundleIdentifier ?? "(unknown)"
+        let msg = "Diagnostics: frontmost=\(frontAppName) [\(frontAppBundle)], cutFlag=\(cutFlag.isEmpty ? "no" : "yes")"
+        print(msg)
+        NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+    }
+
+    private func ensureSystemEventsRunning(retryCount: Int = 0, completion: @escaping (Bool) -> Void) {
+        let running = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.systemevents" }
+        if running {
+            completion(true)
+            return
+        }
+        // Try to launch System Events
+        if let seURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systemevents") {
+            let config = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.openApplication(at: seURL, configuration: config, completionHandler: nil)
+        }
+        if retryCount < 10 {
+            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Waiting for System Events to launch... (\(retryCount+1)/10)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.ensureSystemEventsRunning(retryCount: retryCount + 1, completion: completion)
+            }
+        } else {
+            completion(false)
+        }
+    }
+
+    private func runAppleScript(_ source: String) -> String? {
+        if let script = NSAppleScript(source: source) {
+            var error: NSDictionary?
+            let result = script.executeAndReturnError(&error)
+            if error == nil {
+                return result.stringValue
+            } else {
+                print("AppleScript error: \(error!)")
+            }
+        }
+        return nil
+    }
+
+    private func handlePaste() {
+        print("handlePaste: Command+V pressed")
+        NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Command+V pressed")
+        logPasteDiagnostics()
+        let pb = NSPasteboard.general
+        let cutFlag = pb.string(forType: NSPasteboard.PasteboardType("com.apple.finder.cut")) ?? ""
+
+        // Only intercept paste if Finder is running and frontmost and we have a cut flag
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let isFinderFront = frontApp?.bundleIdentifier == "com.apple.finder"
+        let finderRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.finder" }
+
+        func performMovePaste() {
+            // Only proceed if Finder is running
+            if !finderRunning {
+                let msg = "Finder is not running. Cannot perform move paste."
+                showUserNotification(title: "Command X", message: msg)
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+                return
+            }
+            // Get file URLs from pasteboard
+            let fileURLs = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] ?? []
+            // Get target folder from Finder
+            let targetScript = """
+            tell application "Finder"
+                try
+                    set sel to selection
+                    if (count of sel) = 1 and class of item 1 of sel = folder then
+                        set targetFolder to item 1 of sel
+                    else
+                        set targetFolder to insertion location
+                    end if
+                    return POSIX path of (targetFolder as alias)
+                on error
+                    return ""
+                end try
+            end tell
+            """
+            if let targetPath = runAppleScript(targetScript), !targetPath.isEmpty {
+                let targetURL = URL(fileURLWithPath: targetPath)
+                for url in fileURLs {
+                    let dest = targetURL.appendingPathComponent(url.lastPathComponent)
+                    do {
+                        try FileManager.default.moveItem(at: url, to: dest)
+                    } catch {
+                        print("Failed to move \(url) to \(dest): \(error)")
+                    }
+                }
+                // Clear the cut flag
+                pb.setString("", forType: NSPasteboard.PasteboardType("com.apple.finder.cut"))
+                FileOperationManager.shared.clear()
+            } else {
+                let msg = "Failed to get Finder target folder"
+                print(msg)
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+            }
+        }
+
+        func performForwardPaste() {
+            print("Performing forward paste")
+            // Check accessibility permission
+            if !AXIsProcessTrusted() {
+                let msg = "Accessibility permission required for forward paste. Grant in System Settings > Privacy & Security > Accessibility."
+                showUserNotification(title: "Permission Required", message: msg)
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+                // Also show alert dialog with option to open System Settings
+                DispatchQueue.main.async {
+                    let alert = NSAlert()
+                    alert.messageText = "Permission Required"
+                    alert.informativeText = "Command X needs Accessibility permission to forward Command+V to other applications. Would you like to open System Settings to grant this permission?"
+                    alert.alertStyle = .informational
+                    alert.addButton(withTitle: "Open System Settings")
+                    alert.addButton(withTitle: "Cancel")
+                    
+                    let response = alert.runModal()
+                    if response == .alertFirstButtonReturn {
+                        // Open System Settings > Privacy & Security > Accessibility
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
+                return
+            }
+            // Temporarily unregister hotkeys to avoid recursion
+            HotKeyManager.shared.unregisterHotKeys()
+            print("Hotkeys unregistered")
+            // Get frontmost app PID
+            let frontApp = NSWorkspace.shared.frontmostApplication
+            guard let pid = frontApp?.processIdentifier else {
+                print("Failed to get frontmost app PID for paste")
+                // Re-register hotkeys
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    HotKeyManager.shared.registerHotKeys()
+                    print("Hotkeys re-registered")
+                }
+                return
+            }
+            // Send Cmd+V using CGEvent
+            let vKeyCode: CGKeyCode = 9 // 'v'
+            let cmdFlag = CGEventFlags.maskCommand
+            let source = CGEventSource(stateID: .hidSystemState)
+            let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true)
+            keyDown?.flags = cmdFlag
+            let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false)
+            keyUp?.flags = cmdFlag
+            keyDown?.postToPid(pid)
+            usleep(10000) // 10ms delay
+            keyUp?.postToPid(pid)
+            print("CGEvent paste executed")
+            // Re-register hotkeys after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                HotKeyManager.shared.registerHotKeys()
+                print("Hotkeys re-registered")
+            }
+        }
+
+        if isFinderFront && !cutFlag.isEmpty && finderRunning {
+            ensureSystemEventsRunning { ok in
+                if ok {
+                    performMovePaste()
+                } else {
+                    let msg = "System Events is not running or could not be launched. Grant Automation/Accessibility permissions and try again."
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+                }
+            }
+        } else {
+            ensureSystemEventsRunning { ok in
+                if ok {
+                    performForwardPaste()
+                } else {
+                    let msg = "System Events is not running or could not be launched. Cannot forward paste via System Events."
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+                }
+            }
+        }
+    }
+}
+
+extension AppDelegate {
+    private func setupFinderMonitoring() {
+        workspaceNotificationCenter = NSWorkspace.shared.notificationCenter
+        
+        // Listen for application launch notifications
+        workspaceNotificationCenter?.addObserver(self, 
+                                               selector: #selector(applicationDidLaunch(_:)), 
+                                               name: NSWorkspace.didLaunchApplicationNotification, 
+                                               object: nil)
+        
+        // Listen for application termination notifications
+        workspaceNotificationCenter?.addObserver(self, 
+                                               selector: #selector(applicationDidTerminate(_:)), 
+                                               name: NSWorkspace.didTerminateApplicationNotification, 
+                                               object: nil)
+        
+        // Listen for frontmost application changes
+        workspaceNotificationCenter?.addObserver(self, 
+                                               selector: #selector(frontmostApplicationDidChange(_:)), 
+                                               name: NSWorkspace.didActivateApplicationNotification, 
+                                               object: nil)
+    }
+    
+    @objc private func applicationDidLaunch(_ notification: Notification) {
+        if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+           app.bundleIdentifier == "com.apple.finder" {
+            updateFinderStatus()
+        }
+    }
+    
+    @objc private func applicationDidTerminate(_ notification: Notification) {
+        if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+           app.bundleIdentifier == "com.apple.finder" {
+            updateFinderStatus()
+        }
+    }
+    
+    @objc private func frontmostApplicationDidChange(_ notification: Notification) {
+        updateFinderStatus()
+    }
+    
+    private func updateFinderStatus() {
+        let wasActive = finderRunning && finderIsFrontmost
+        
+        finderRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.finder" }
+        finderIsFrontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder"
+        
+        let isActive = finderRunning && finderIsFrontmost
+        
+        if isActive != wasActive {
+            if isActive {
+                showMenuBarIcon()
+                registerHotKeys()
+            } else {
+                hideMenuBarIcon()
+                unregisterHotKeys()
+            }
+        }
+    }
+    
+    private func showMenuBarIcon() {
+        // Menu bar icon is already created, just ensure it's visible
+        if let button = statusItem?.button {
+            button.isEnabled = true
+            button.image?.isTemplate = false
+        }
+    }
+    
+    private func hideMenuBarIcon() {
+        // Disable the menu bar button instead of removing it completely
+        // This keeps the app running but makes it inactive
+        if let button = statusItem?.button {
+            button.isEnabled = false
+            button.image?.isTemplate = true
+        }
+        // Close popover if open
+        if popover?.isShown == true {
+            popover?.performClose(nil)
+        }
+    }
+    
+    private func registerHotKeys() {
+        HotKeyManager.shared.onCut = handleCut
+        HotKeyManager.shared.onPaste = handlePaste
+        HotKeyManager.shared.registerHotKeys()
+    }
+    
+    private func unregisterHotKeys() {
+        HotKeyManager.shared.unregisterHotKeys()
+    }
+    private func requestInitialPermissions() {
+        // Open System Settings > Privacy & Security > Accessibility
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+        
+        // Show notification guiding user
+        let content = UNMutableNotificationContent()
+        content.title = "Command X Setup"
+        content.body = "Please grant accessibility permission to Command X in System Settings > Privacy & Security > Accessibility."
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "CommandXFirstLaunch", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+    }
+    
+    private func checkAccessibilityPermission() {
+        let hasPermission = AXIsProcessTrusted()
+        UserDefaults.standard.set(hasPermission, forKey: "accessibilityPermissionGranted")
+        // Notify UI to update permission status
+        NotificationCenter.default.post(name: Notification.Name("CommandXPermissionStatusChanged"), object: hasPermission)
+    }
+}
