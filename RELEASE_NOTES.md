@@ -25,7 +25,7 @@ CommandX is a lightweight macOS menu bar app that brings familiar cut-and-paste 
 > You only need to do this once.
 
 ### Download and Install Manually
-<a href="https://github.com/VuongPham96/command-x/releases/latest/download/CommandX.dmg.zip" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
+<a href="https://github.com/EnableStartup/command-x/releases/latest/download/CommandX.dmg.zip" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
 
 ## 🎵 Usage
 - Select files/folders in Finder

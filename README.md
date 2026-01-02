@@ -33,7 +33,7 @@ Command X is a macOS menu bar app that allows you to cut and paste files or fold
 
 
 ### Download and Install Manually
-<a href="https://github.com/VuongPham96/command-x/releases/latest/download/CommandX.dmg" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
+<a href="https://github.com/EnableStartup/command-x/releases/latest/download/CommandX.dmg" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
 
 ## Usage
 1. Launch the app (it runs in the menu bar)
