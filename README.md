@@ -33,12 +33,12 @@ Command X is a macOS menu bar app that allows you to cut and paste files or fold
 
 
 ### Download and Install Manually
-<a href="https://github.com/EnableStartup/command-x/releases/latest/download/CommandX.dmg" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
+<a href="https://github.com/marton78/command-x/releases/latest/download/CommandX.dmg.zip" target="_self"><img width="200" src="https://github.com/user-attachments/assets/e3179be1-8416-4b8a-b417-743e1ecc67d6" alt="Download for macOS" /></a>
 
 ## Usage
 1. Launch the app (it runs in the menu bar)
-2. Press **Command+X** anywhere: select files/folders to cut (via dialog)
-3. Press **Command+V**: select the destination folder (via dialog) and the files/folders are moved there
+2. Select files/folders in Finder, then press **Command+X** to cut them (reads current Finder selection via AppleScript)
+3. Navigate to the destination folder in Finder, then press **Command+V** to move the files/folders there
 4. Access settings via the menu bar icon: toggle sound, launch at login, etc.
 
 ## How It Works
