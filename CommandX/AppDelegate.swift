@@ -21,13 +21,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let isFirstLaunch = !UserDefaults.standard.bool(forKey: "hasLaunchedBefore")
         if isFirstLaunch {
             UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
-            // Set default launch at login to true
-            UserDefaults.standard.set(true, forKey: "launchAtLogin")
             // Request permissions on first launch
             requestInitialPermissions()
-            
-            // Set launch at login for first launch
-            LaunchAtLoginManager.shared.isEnabled = true
+            // Launch at Login defaults to off; the user can enable it from Settings.
         }
         
         // Check accessibility permission status
