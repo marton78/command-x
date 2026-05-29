@@ -5,6 +5,7 @@
 
 import Foundation
 
+@MainActor
 class FileOperationManager {
     static let shared = FileOperationManager()
     private(set) var cutURLs: [URL] = []

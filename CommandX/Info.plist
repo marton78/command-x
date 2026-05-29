@@ -16,5 +16,11 @@
     <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Command X needs permission to control Finder and System Events to perform cut-and-paste file operations in Finder.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2024 CommandX. All rights reserved.</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
 </dict>
 </plist>

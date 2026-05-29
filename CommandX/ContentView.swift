@@ -7,10 +7,10 @@ import SwiftUI
 import ApplicationServices
 
 struct ContentView: View {
-            @AppStorage("cutSoundEnabled") var cutSoundEnabled: Bool = true
-            @State private var isAccessibilityGranted: Bool = AXIsProcessTrusted()
-            @State private var showPermissionAlert = false
-            @State private var launchAtLogin: Bool = true
+    @AppStorage("cutSoundEnabled") var cutSoundEnabled: Bool = true
+    @State private var isAccessibilityGranted: Bool = AXIsProcessTrusted()
+    @State private var showPermissionAlert = false
+    @State private var launchAtLogin: Bool = true
     
     var body: some View {
         VStack(spacing: 0) {
