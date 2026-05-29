@@ -8,7 +8,7 @@ import ApplicationServices
 
 struct ContentView: View {
             @AppStorage("cutSoundEnabled") var cutSoundEnabled: Bool = true
-            @AppStorage("allowAccess") var allowAccess: Bool = false
+            @State private var isAccessibilityGranted: Bool = AXIsProcessTrusted()
             @State private var showPermissionAlert = false
             @State private var launchAtLogin: Bool = true
     
@@ -25,26 +25,33 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Allow access
                 HStack(alignment: .top) {
-                    Toggle(isOn: $allowAccess) {
+                    Toggle(isOn: .constant(isAccessibilityGranted)) {
                         Text("Allow Command + X to access")
                     }
                     .toggleStyle(CheckboxToggleStyle())
-                    .onChange(of: allowAccess) { newValue in
-                        if newValue {
-                            // Open System Preferences for user to enable accessibility
+                    .disabled(true)
+
+                    if !isAccessibilityGranted {
+                        Button("Open Accessibility Settings…") {
                             openSystemSettings()
                         }
-                        // Update stored permission status
-                        UserDefaults.standard.set(newValue, forKey: "allowAccess")
+                        .buttonStyle(.link)
                     }
                 }
-                Text("System Preferences → Security & Privacy → Accessibility → Add Command + X and check")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
-                    .padding(.leading, 28)
+                if isAccessibilityGranted {
+                    Text("Accessibility permission is granted.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 28)
+                } else {
+                    Text("System Preferences → Security & Privacy → Accessibility → Add Command + X and check")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                        .padding(.leading, 28)
+                }
 
                 // Sound effect
                 Toggle(isOn: $cutSoundEnabled) {
@@ -79,10 +86,14 @@ struct ContentView: View {
         }
         .frame(width: 380)
         .onAppear {
+            isAccessibilityGranted = AXIsProcessTrusted()
             // Delay sync to avoid issues during view initialization
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 launchAtLogin = LaunchAtLoginManager.shared.isEnabled
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            isAccessibilityGranted = AXIsProcessTrusted()
         }
         .onChange(of: launchAtLogin) { newValue in
             LaunchAtLoginManager.shared.isEnabled = newValue
