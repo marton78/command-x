@@ -5,9 +5,10 @@
 
 import Cocoa
 import UserNotifications
-import ApplicationServices
-import CoreGraphics
 import SwiftUI
+import os
+
+private let logger = Logger(subsystem: "enablestartup.CommandX", category: "main")
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
@@ -79,7 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleCut() {
         // Hotkey triggered
-        print("handleCut: Command+X pressed")
+        logger.debug("handleCut: Command+X pressed")
         
         // Double-check that Finder is running and frontmost (should already be true since hotkeys are only registered then)
         let finderRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.finder" }
@@ -87,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let isFinderFrontmost = frontApp?.bundleIdentifier == "com.apple.finder"
         
         if !finderRunning || !isFinderFrontmost {
-            print("Finder not active, ignoring cut command")
+            logger.debug("Finder not active, ignoring cut command")
             return
         }
         
@@ -183,7 +184,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else if let errorDict = error {
                 let errorNum = errorDict[NSAppleScript.errorNumber] as? Int ?? 0
                 let errorMsg = errorDict[NSAppleScript.errorMessage] as? String ?? String(describing: errorDict)
-                print("AppleScript error \(errorNum): \(errorMsg)")
+                logger.error("AppleScript error \(errorNum): \(errorMsg)")
                 if errorNum == -1743 {
                     // errAEEventNotPermitted: app lacks Automation permission for Finder.
                     let msg = "Grant CommandX permission to control Finder in System Settings → Privacy & Security → Automation."
@@ -198,7 +199,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } else {
             let msg = "Failed to create AppleScript"
-            print(msg)
+            logger.error("Failed to create AppleScript")
             showUserNotification(title: "Command X", message: msg)
             NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
         }
@@ -235,7 +236,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let frontAppName = frontApp?.localizedName ?? "(none)"
         let frontAppBundle = frontApp?.bundleIdentifier ?? "(unknown)"
         let msg = "Diagnostics: frontmost=\(frontAppName) [\(frontAppBundle)], cutFlag=\(cutFlag.isEmpty ? "no" : "yes")"
-        print(msg)
+        logger.debug("Diagnostics: frontmost=\(frontAppName) [\(frontAppBundle)], cutFlag=\(cutFlag.isEmpty ? "no" : "yes")")
         NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
     }
 
@@ -290,14 +291,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let errorDict = errorDict {
             let code = (errorDict[NSAppleScript.errorNumber] as? Int) ?? 0
             let message = (errorDict[NSAppleScript.errorMessage] as? String) ?? String(describing: errorDict)
-            print("AppleScript error \(code): \(message)")
+            logger.error("AppleScript error \(code): \(message)")
             return .failure(AppleScriptError.executionFailed(code: code, message: message))
         }
         return .success(result.stringValue ?? "")
     }
 
     private func handlePaste() {
-        print("handlePaste: Command+V pressed")
+        logger.debug("handlePaste: Command+V pressed")
         NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Command+V pressed")
         logPasteDiagnostics()
         let pb = NSPasteboard.general
@@ -343,7 +344,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     do {
                         try FileManager.default.moveItem(at: url, to: dest)
                     } catch {
-                        print("Failed to move \(url) to \(dest): \(error)")
+                        logger.error("Failed to move \(url) to \(dest): \(error)")
                         failedNames.append(url.lastPathComponent)
                     }
                 }
@@ -361,25 +362,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // errAEEventNotPermitted (-1743): app is not allowed to control Finder.
                 if case .executionFailed(let code, _) = error, code == -1743 {
                     let msg = "Grant CommandX permission to control Finder in System Settings → Privacy & Security → Automation."
-                    print("AppleScript permission denied (-1743) getting Finder target folder")
+                    logger.error("AppleScript permission denied (-1743) getting Finder target folder")
                     showUserNotification(title: "Command X – Permission Required", message: msg)
                     NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
                     NotificationCenter.default.post(name: Notification.Name("CommandXPermissionError"), object: nil)
                 } else {
                     let msg = "Failed to get Finder target folder: \(error.localizedDescription)"
-                    print(msg)
+                    logger.error("Failed to get Finder target folder: \(error.localizedDescription)")
                     NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
                 }
 
             case .failure(let error):
                 let msg = "Failed to get Finder target folder: \(error.localizedDescription)"
-                print(msg)
+                logger.error("Failed to get Finder target folder: \(error.localizedDescription)")
                 NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
 
             default:
                 // Empty path — no Finder window open or no recognisable location.
                 let msg = "No Finder window open; cannot determine paste destination."
-                print(msg)
+                logger.info("No Finder window open; cannot determine paste destination.")
                 NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
             }
         }
@@ -387,7 +388,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Hotkeys are only registered while Finder is frontmost (see updateFinderStatus()),
         // so if Finder is not front or there is no cut flag, there is nothing to do.
         guard isFinderFront && !cutFlag.isEmpty && finderRunning else {
-            print("handlePaste: Finder not frontmost or no cut flag — ignoring")
+            logger.debug("handlePaste: Finder not frontmost or no cut flag — ignoring")
             return
         }
 
