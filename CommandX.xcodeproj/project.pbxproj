@@ -10,7 +10,7 @@
 		8487A06F2F0372FB007B0798 /* CommandX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CommandX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCCCCC012F0372FB007B0798 /* CommandXTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CommandXTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCCCCC022F0372FB007B0798 /* CommandXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandXTests.swift; sourceTree = "<group>"; };
-		CCCCCC032F0372FB007B0798 /* PathParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathParsing.swift; sourceTree = "<group>"; };
+		CCCCCC032F0372FB007B0798 /* PathParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandX/PathParsing.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXBuildFile section */
