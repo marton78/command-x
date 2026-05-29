@@ -66,6 +66,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        HotKeyManager.shared.unregisterHotKeys()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
     @objc func togglePopover(_ sender: Any?) {
         if let button = statusItem?.button {
             if popover?.isShown == true {
@@ -408,9 +413,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate {
     private func setupFinderMonitoring() {
         workspaceNotificationCenter = NSWorkspace.shared.notificationCenter
-        
+
+        // Remove any existing observers first to ensure idempotency
+        workspaceNotificationCenter?.removeObserver(self)
+
         // Listen for application launch notifications
-        workspaceNotificationCenter?.addObserver(self, 
+        workspaceNotificationCenter?.addObserver(self,
                                                selector: #selector(applicationDidLaunch(_:)), 
                                                name: NSWorkspace.didLaunchApplicationNotification, 
                                                object: nil)

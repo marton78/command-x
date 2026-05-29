@@ -10,6 +10,7 @@ class HotKeyManager {
     static let shared = HotKeyManager()
     private var cutHotKey: EventHotKeyRef?
     private var pasteHotKey: EventHotKeyRef?
+    private var eventHandlerRef: EventHandlerRef?
     var onCut: (() -> Void)?
     var onPaste: (() -> Void)?
 
@@ -29,6 +30,7 @@ class HotKeyManager {
     }
 
     private func installEventHandler() {
+        guard eventHandlerRef == nil else { return }
         let eventSpec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { (nextHandler, theEvent, userData) -> OSStatus in
             var hotKeyID = EventHotKeyID()
@@ -42,7 +44,7 @@ class HotKeyManager {
                 break
             }
             return noErr
-        }, 1, [eventSpec], nil, nil)
+        }, 1, [eventSpec], nil, &eventHandlerRef)
     }
 
     func unregisterHotKeys() {
@@ -53,6 +55,10 @@ class HotKeyManager {
         if let pasteHotKey = pasteHotKey {
             UnregisterEventHotKey(pasteHotKey)
             self.pasteHotKey = nil
+        }
+        if let handler = eventHandlerRef {
+            RemoveEventHandler(handler)
+            eventHandlerRef = nil
         }
     }
 }
