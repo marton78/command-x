@@ -10,6 +10,23 @@ import os
 
 private let logger = Logger(subsystem: "enablestartup.CommandX", category: "main")
 
+// MARK: - Timing / retry constants
+
+/// Number of times to retry launching Finder before giving up.
+private let finderLaunchRetryAttempts = 20
+/// Seconds to wait between Finder-launch retry attempts.
+private let finderLaunchRetryDelay: TimeInterval = 0.5
+
+/// Number of times to retry the AppleScript selection query while Finder is still starting.
+private let finderSelectionPollAttempts = 10
+/// Seconds to wait between Finder-selection poll attempts.
+private let finderSelectionPollDelay: TimeInterval = 0.75
+
+/// Number of times to retry launching System Events before giving up.
+private let systemEventsLaunchRetryAttempts = 10
+/// Seconds to wait between System Events launch retry attempts.
+private let systemEventsLaunchRetryDelay: TimeInterval = 0.5
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var popover: NSPopover?
@@ -111,10 +128,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let config = NSWorkspace.OpenConfiguration()
             NSWorkspace.shared.openApplication(at: finderURL, configuration: config, completionHandler: nil)
         }
-        // Wait and retry up to 20 times (10 seconds total)
-        if retryCount < 20 {
-            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Waiting for Finder to launch... (\(retryCount+1)/20)")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Wait and retry up to finderLaunchRetryAttempts times
+        if retryCount < finderLaunchRetryAttempts {
+            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Waiting for Finder to launch... (\(retryCount+1)/\(finderLaunchRetryAttempts))")
+            DispatchQueue.main.asyncAfter(deadline: .now() + finderLaunchRetryDelay) {
                 self.ensureFinderIsRunningAndCut(retryCount: retryCount + 1)
             }
         } else {
@@ -174,10 +191,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "No files or folders selected in Finder.")
                     }
                 }
-            } else if let errorDict = error, let errorNum = errorDict[NSAppleScript.errorNumber] as? Int, errorNum == -600, retryCount < 10 {
+            } else if let errorDict = error, let errorNum = errorDict[NSAppleScript.errorNumber] as? Int, errorNum == -600, retryCount < finderSelectionPollAttempts {
                 // Finder not running yet, retry after delay
-                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Finder not running yet, retrying \(retryCount+1)/10...")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Finder not running yet, retrying \(retryCount+1)/\(finderSelectionPollAttempts)...")
+                DispatchQueue.main.asyncAfter(deadline: .now() + finderSelectionPollDelay) {
                     self.tryGetFinderSelectionAndCut(retryCount: retryCount + 1)
                 }
                 return
@@ -251,9 +268,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let config = NSWorkspace.OpenConfiguration()
             NSWorkspace.shared.openApplication(at: seURL, configuration: config, completionHandler: nil)
         }
-        if retryCount < 10 {
-            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Waiting for System Events to launch... (\(retryCount+1)/10)")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        if retryCount < systemEventsLaunchRetryAttempts {
+            NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "Waiting for System Events to launch... (\(retryCount+1)/\(systemEventsLaunchRetryAttempts))")
+            DispatchQueue.main.asyncAfter(deadline: .now() + systemEventsLaunchRetryDelay) {
                 self.ensureSystemEventsRunning(retryCount: retryCount + 1, completion: completion)
             }
         } else {
