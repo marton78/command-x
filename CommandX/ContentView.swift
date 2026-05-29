@@ -82,6 +82,17 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 8)
+
+            Button(action: {
+                LaunchAtLoginManager.shared.isEnabled = false
+                NSApp.terminate(nil)
+            }) {
+                Text("Quit and Remove from Login Items")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
             .padding(.bottom, 16)
         }
         .frame(width: 380)
