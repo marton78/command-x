@@ -4,8 +4,6 @@
 <dict>
 	<key>com.apple.security.accessibility</key>
 	<true/>
-	<key>com.apple.security.files.user-selected.read-only</key>
-	<true/>
 	<key>com.apple.security.scripting-targets</key>
 	<dict>
 		<key>com.apple.finder</key>
@@ -18,5 +16,4 @@
 		</array>
 	</dict>
 </dict>
-</plist></content>
-<parameter name="filePath">/Users/admin/Workspace/CommandX/CommandX/CommandX.entitlements
+</plist>
