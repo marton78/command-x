@@ -35,6 +35,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var workspaceNotificationCenter: NotificationCenter?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Register default values so bool(forKey:) returns the correct fallback
+        // without needing nil-coalescing at every read site.
+        UserDefaults.standard.register(defaults: ["cutSoundEnabled": true])
+
         // Check if this is first launch
         let isFirstLaunch = !UserDefaults.standard.bool(forKey: "hasLaunchedBefore")
         if isFirstLaunch {
@@ -110,7 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // Play sound if enabled
-        let soundEnabled = UserDefaults.standard.object(forKey: "cutSoundEnabled") as? Bool ?? true
+        let soundEnabled = UserDefaults.standard.bool(forKey: "cutSoundEnabled")
         if soundEnabled {
             NSSound(named: NSSound.Name("Funk"))?.play()
         }
