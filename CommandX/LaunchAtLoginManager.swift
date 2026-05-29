@@ -60,12 +60,14 @@ class LaunchAtLoginManager {
         }
         let loginItemsArray = snapshotRef.takeRetainedValue() as? [LSSharedFileListItem] ?? []
 
-        let appURL = Bundle.main.bundleURL
+        let mainBundleID = Bundle.main.bundleIdentifier
 
         for item in loginItemsArray {
             guard let itemURLRef = LSSharedFileListItemCopyResolvedURL(item, 0, nil) else { continue }
             let itemURL = itemURLRef.takeRetainedValue() as URL
-            if itemURL == appURL {
+            guard let itemBundle = Bundle(url: itemURL),
+                  let itemBundleID = itemBundle.bundleIdentifier else { continue }
+            if itemBundleID == mainBundleID {
                 return true
             }
         }
@@ -79,6 +81,7 @@ class LaunchAtLoginManager {
         let loginItems = loginItemsRef.takeRetainedValue()
 
         let appURL = Bundle.main.bundleURL
+        let mainBundleID = Bundle.main.bundleIdentifier
 
         if enabled {
             LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemLast.takeUnretainedValue(), nil, nil, appURL as CFURL, nil, nil)
@@ -91,7 +94,9 @@ class LaunchAtLoginManager {
             for item in loginItemsArray {
                 guard let itemURLRef = LSSharedFileListItemCopyResolvedURL(item, 0, nil) else { continue }
                 let itemURL = itemURLRef.takeRetainedValue() as URL
-                if itemURL == appURL {
+                guard let itemBundle = Bundle(url: itemURL),
+                      let itemBundleID = itemBundle.bundleIdentifier else { continue }
+                if itemBundleID == mainBundleID {
                     LSSharedFileListItemRemove(loginItems, item)
                     break
                 }
