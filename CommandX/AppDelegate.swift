@@ -142,7 +142,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             end if
             set output to ""
             repeat with f in sel
-                set output to output & POSIX path of (f as alias) & "\n"
+                set output to output & POSIX path of (f as alias) & "\0"
             end repeat
             return output
         end tell
@@ -154,7 +154,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "No files or folders selected in Finder.")
                 } else {
                     // Parse POSIX paths and set pasteboard with URLs and cut flag
-                    let paths = output.split(separator: "\n").map { String($0) }.filter { !$0.isEmpty }
+                    let paths = output.split(separator: "\0").map { String($0) }.filter { !$0.isEmpty }
                     let urls = paths.map { URL(fileURLWithPath: $0) }
                     if !urls.isEmpty {
                         // Store in our manager
