@@ -184,15 +184,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     self.tryGetFinderSelectionAndCut(retryCount: retryCount + 1)
                 }
                 return
-            } else if let error = error {
-                let msg = "AppleScript error: \(error)"
-                print(msg)
-                // Post full error dictionary to UI for debugging
-                let fullError = String(describing: error)
-                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: fullError)
-                showUserNotification(title: "Command X", message: "Failed to get Finder selection. AppleScript error.")
-                // Notify UI to show permission alert
-                NotificationCenter.default.post(name: Notification.Name("CommandXPermissionError"), object: nil)
+            } else if let errorDict = error {
+                let errorNum = errorDict[NSAppleScript.errorNumber] as? Int ?? 0
+                let errorMsg = errorDict[NSAppleScript.errorMessage] as? String ?? String(describing: errorDict)
+                print("AppleScript error \(errorNum): \(errorMsg)")
+                if errorNum == -1743 {
+                    // errAEEventNotPermitted: app lacks Automation permission for Finder.
+                    let msg = "Grant CommandX permission to control Finder in System Settings → Privacy & Security → Automation."
+                    showUserNotification(title: "Command X – Permission Required", message: msg)
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+                    NotificationCenter.default.post(name: Notification.Name("CommandXPermissionError"), object: nil)
+                } else {
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "AppleScript error \(errorNum): \(errorMsg)")
+                    showUserNotification(title: "Command X", message: "Failed to get Finder selection. AppleScript error \(errorNum).")
+                    NotificationCenter.default.post(name: Notification.Name("CommandXPermissionError"), object: nil)
+                }
             }
         } else {
             let msg = "Failed to create AppleScript"
@@ -258,17 +264,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func runAppleScript(_ source: String) -> String? {
-        if let script = NSAppleScript(source: source) {
-            var error: NSDictionary?
-            let result = script.executeAndReturnError(&error)
-            if error == nil {
-                return result.stringValue
-            } else {
-                print("AppleScript error: \(error!)")
+    /// Errors surfaced from `runAppleScript(_:)`.
+    enum AppleScriptError: LocalizedError {
+        /// The AppleScript source could not be compiled.
+        case compilationFailed
+        /// The script executed but returned an Apple Events error.
+        case executionFailed(code: Int, message: String)
+
+        var errorDescription: String? {
+            switch self {
+            case .compilationFailed:
+                return "AppleScript compilation failed."
+            case .executionFailed(let code, let message):
+                return "AppleScript error \(code): \(message)"
             }
         }
-        return nil
+    }
+
+    /// Run an AppleScript source string and return the string result, or a typed error.
+    ///
+    /// Error code -1743 (`errAEEventNotPermitted`) means the user has not granted
+    /// Automation permission for this app in System Settings → Privacy & Security → Automation.
+    private func runAppleScript(_ source: String) -> Result<String, Error> {
+        guard let script = NSAppleScript(source: source) else {
+            return .failure(AppleScriptError.compilationFailed)
+        }
+        var errorDict: NSDictionary?
+        let result = script.executeAndReturnError(&errorDict)
+        if let errorDict = errorDict {
+            let code = (errorDict[NSAppleScript.errorNumber] as? Int) ?? 0
+            let message = (errorDict[NSAppleScript.errorMessage] as? String) ?? String(describing: errorDict)
+            print("AppleScript error \(code): \(message)")
+            return .failure(AppleScriptError.executionFailed(code: code, message: message))
+        }
+        return .success(result.stringValue ?? "")
     }
 
     private func handlePaste() {
@@ -309,7 +338,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 end try
             end tell
             """
-            if let targetPath = runAppleScript(targetScript), !targetPath.isEmpty {
+            switch runAppleScript(targetScript) {
+            case .success(let targetPath) where !targetPath.isEmpty:
                 let targetURL = URL(fileURLWithPath: targetPath)
                 var failedNames: [String] = []
                 for url in fileURLs {
@@ -330,8 +360,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // Clear the cut flag
                 pb.setString("", forType: NSPasteboard.PasteboardType("com.apple.finder.cut"))
                 FileOperationManager.shared.clear()
-            } else {
-                let msg = "Failed to get Finder target folder"
+
+            case .failure(let error as AppleScriptError):
+                // errAEEventNotPermitted (-1743): app is not allowed to control Finder.
+                if case .executionFailed(let code, _) = error, code == -1743 {
+                    let msg = "Grant CommandX permission to control Finder in System Settings → Privacy & Security → Automation."
+                    print("AppleScript permission denied (-1743) getting Finder target folder")
+                    showUserNotification(title: "Command X – Permission Required", message: msg)
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+                    NotificationCenter.default.post(name: Notification.Name("CommandXPermissionError"), object: nil)
+                } else {
+                    let msg = "Failed to get Finder target folder: \(error.localizedDescription)"
+                    print(msg)
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+                }
+
+            case .failure(let error):
+                let msg = "Failed to get Finder target folder: \(error.localizedDescription)"
+                print(msg)
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
+
+            default:
+                // Empty path — no Finder window open or no recognisable location.
+                let msg = "No Finder window open; cannot determine paste destination."
                 print(msg)
                 NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
             }
