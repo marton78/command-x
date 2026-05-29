@@ -29,7 +29,6 @@ struct ContentView: View {
                         Text("Allow Command + X to access")
                     }
                     .toggleStyle(CheckboxToggleStyle())
-                    .disabled(true)
 
                     if !isAccessibilityGranted {
                         Button("Open Accessibility Settings…") {
@@ -104,6 +103,9 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            isAccessibilityGranted = AXIsProcessTrusted()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSPopover.willShowNotification)) { _ in
             isAccessibilityGranted = AXIsProcessTrusted()
         }
         .onChange(of: launchAtLogin) { newValue in
