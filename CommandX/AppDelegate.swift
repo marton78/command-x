@@ -487,23 +487,14 @@ extension AppDelegate {
     }
     
     private func showMenuBarIcon() {
-        // Menu bar icon is already created, just ensure it's visible
         if let button = statusItem?.button {
-            button.isEnabled = true
             button.image?.isTemplate = false
         }
     }
     
     private func hideMenuBarIcon() {
-        // Disable the menu bar button instead of removing it completely
-        // This keeps the app running but makes it inactive
         if let button = statusItem?.button {
-            button.isEnabled = false
             button.image?.isTemplate = true
-        }
-        // Close popover if open
-        if popover?.isShown == true {
-            popover?.performClose(nil)
         }
     }
     
