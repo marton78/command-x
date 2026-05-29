@@ -5,6 +5,7 @@
 
 import Foundation
 import CoreServices
+import AppKit
 
 #if canImport(ServiceManagement)
 import ServiceManagement
@@ -51,6 +52,11 @@ class LaunchAtLoginManager {
                             } else {
                                 try SMAppService.mainApp.unregister()
                             }
+                        } catch let smError as NSError where smError.code == kSMErrorAuthorizationFailure {
+                            print("Failed to \(newValue ? "register" : "unregister") launch at login (authorization required): \(smError)")
+                            DispatchQueue.main.async {
+                                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems")!)
+                            }
                         } catch {
                             print("Failed to \(newValue ? "register" : "unregister") launch at login: \(error)")
                             // Fall back to LSSharedFileList
@@ -69,6 +75,9 @@ class LaunchAtLoginManager {
                     } else {
                         try SMAppService.mainApp.unregister()
                     }
+                } catch let smError as NSError where smError.code == kSMErrorAuthorizationFailure {
+                    print("Failed to \(newValue ? "register" : "unregister") launch at login (authorization required): \(smError)")
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems")!)
                 } catch {
                     print("Failed to \(newValue ? "register" : "unregister") launch at login: \(error)")
                     // Fall back to LSSharedFileList

@@ -97,12 +97,6 @@ struct ContentView: View {
         }
         .onChange(of: launchAtLogin) { newValue in
             LaunchAtLoginManager.shared.isEnabled = newValue
-            #if !DEBUG
-            if newValue {
-                // Open System Preferences when enabling (only in release builds)
-                openSystemSettings()
-            }
-            #endif
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("CommandXPermissionError"))) { _ in
             showPermissionAlert = true
