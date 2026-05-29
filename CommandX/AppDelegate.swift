@@ -311,13 +311,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             """
             if let targetPath = runAppleScript(targetScript), !targetPath.isEmpty {
                 let targetURL = URL(fileURLWithPath: targetPath)
+                var failedNames: [String] = []
                 for url in fileURLs {
                     let dest = targetURL.appendingPathComponent(url.lastPathComponent)
                     do {
                         try FileManager.default.moveItem(at: url, to: dest)
                     } catch {
                         print("Failed to move \(url) to \(dest): \(error)")
+                        failedNames.append(url.lastPathComponent)
                     }
+                }
+                if !failedNames.isEmpty {
+                    let list = failedNames.joined(separator: ", ")
+                    let msg = "Failed to move: \(list)"
+                    showUserNotification(title: "Command X – Move Failed", message: msg)
+                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
                 }
                 // Clear the cut flag
                 pb.setString("", forType: NSPasteboard.PasteboardType("com.apple.finder.cut"))
@@ -329,82 +337,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        func performForwardPaste() {
-            print("Performing forward paste")
-            // Check accessibility permission
-            if !AXIsProcessTrusted() {
-                let msg = "Accessibility permission required for forward paste. Grant in System Settings > Privacy & Security > Accessibility."
-                showUserNotification(title: "Permission Required", message: msg)
-                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
-                // Also show alert dialog with option to open System Settings
-                DispatchQueue.main.async {
-                    let alert = NSAlert()
-                    alert.messageText = "Permission Required"
-                    alert.informativeText = "Command X needs Accessibility permission to forward Command+V to other applications. Would you like to open System Settings to grant this permission?"
-                    alert.alertStyle = .informational
-                    alert.addButton(withTitle: "Open System Settings")
-                    alert.addButton(withTitle: "Cancel")
-                    
-                    let response = alert.runModal()
-                    if response == .alertFirstButtonReturn {
-                        // Open System Settings > Privacy & Security > Accessibility
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }
-                }
-                return
-            }
-            // Temporarily unregister hotkeys to avoid recursion
-            HotKeyManager.shared.unregisterHotKeys()
-            print("Hotkeys unregistered")
-            // Get frontmost app PID
-            let frontApp = NSWorkspace.shared.frontmostApplication
-            guard let pid = frontApp?.processIdentifier else {
-                print("Failed to get frontmost app PID for paste")
-                // Re-register hotkeys
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    HotKeyManager.shared.registerHotKeys()
-                    print("Hotkeys re-registered")
-                }
-                return
-            }
-            // Send Cmd+V using CGEvent
-            let vKeyCode: CGKeyCode = 9 // 'v'
-            let cmdFlag = CGEventFlags.maskCommand
-            let source = CGEventSource(stateID: .hidSystemState)
-            let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true)
-            keyDown?.flags = cmdFlag
-            let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false)
-            keyUp?.flags = cmdFlag
-            keyDown?.postToPid(pid)
-            usleep(10000) // 10ms delay
-            keyUp?.postToPid(pid)
-            print("CGEvent paste executed")
-            // Re-register hotkeys after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                HotKeyManager.shared.registerHotKeys()
-                print("Hotkeys re-registered")
-            }
+        // Hotkeys are only registered while Finder is frontmost (see updateFinderStatus()),
+        // so if Finder is not front or there is no cut flag, there is nothing to do.
+        guard isFinderFront && !cutFlag.isEmpty && finderRunning else {
+            print("handlePaste: Finder not frontmost or no cut flag — ignoring")
+            return
         }
 
-        if isFinderFront && !cutFlag.isEmpty && finderRunning {
-            ensureSystemEventsRunning { ok in
-                if ok {
-                    performMovePaste()
-                } else {
-                    let msg = "System Events is not running or could not be launched. Grant Automation/Accessibility permissions and try again."
-                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
-                }
-            }
-        } else {
-            ensureSystemEventsRunning { ok in
-                if ok {
-                    performForwardPaste()
-                } else {
-                    let msg = "System Events is not running or could not be launched. Cannot forward paste via System Events."
-                    NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
-                }
+        ensureSystemEventsRunning { ok in
+            if ok {
+                performMovePaste()
+            } else {
+                let msg = "System Events is not running or could not be launched. Grant Automation/Accessibility permissions and try again."
+                NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: msg)
             }
         }
     }
