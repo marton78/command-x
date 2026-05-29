@@ -177,8 +177,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     NotificationCenter.default.post(name: Notification.Name("CommandXStatusMessage"), object: "No files or folders selected in Finder.")
                 } else {
                     // Parse POSIX paths and set pasteboard with URLs and cut flag
-                    let paths = output.split(separator: "\0").map { String($0) }.filter { !$0.isEmpty }
-                    let urls = paths.map { URL(fileURLWithPath: $0) }
+                    let urls = parseFinderPaths(output)
                     if !urls.isEmpty {
                         // Store in our manager
                         FileOperationManager.shared.cut(urls: urls)

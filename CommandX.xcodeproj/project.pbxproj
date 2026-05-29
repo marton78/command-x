@@ -8,7 +8,15 @@
 
 /* Begin PBXFileReference section */
 		8487A06F2F0372FB007B0798 /* CommandX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CommandX.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CCCCCC012F0372FB007B0798 /* CommandXTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CommandXTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CCCCCC022F0372FB007B0798 /* CommandXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandXTests.swift; sourceTree = "<group>"; };
+		CCCCCC032F0372FB007B0798 /* PathParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathParsing.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXBuildFile section */
+		CCCCCC042F0372FB007B0798 /* CommandXTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCCCCC022F0372FB007B0798 /* CommandXTests.swift */; };
+		CCCCCC052F0372FB007B0798 /* PathParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCCCCC032F0372FB007B0798 /* PathParsing.swift */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		84D200112F03A9C000BD08C5 /* Exceptions for "CommandX" folder in "CommandX" target */ = {
@@ -46,6 +54,7 @@
 			isa = PBXGroup;
 			children = (
 				8487A0712F0372FB007B0798 /* CommandX */,
+				CCCCCC062F0372FB007B0798 /* CommandXTests */,
 				8487A0702F0372FB007B0798 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,8 +63,17 @@
 			isa = PBXGroup;
 			children = (
 				8487A06F2F0372FB007B0798 /* CommandX.app */,
+				CCCCCC012F0372FB007B0798 /* CommandXTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		CCCCCC062F0372FB007B0798 /* CommandXTests */ = {
+			isa = PBXGroup;
+			children = (
+				CCCCCC022F0372FB007B0798 /* CommandXTests.swift */,
+			);
+			path = CommandXTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -83,6 +101,25 @@
 			productReference = 8487A06F2F0372FB007B0798 /* CommandX.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CCCCCC072F0372FB007B0798 /* CommandXTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CCCCCC0C2F0372FB007B0798 /* Build configuration list for PBXNativeTarget "CommandXTests" */;
+			buildPhases = (
+				CCCCCC082F0372FB007B0798 /* Sources */,
+				CCCCCC092F0372FB007B0798 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CCCCCC0B2F0372FB007B0798 /* PBXTargetDependency */,
+			);
+			name = CommandXTests;
+			packageProductDependencies = (
+			);
+			productName = CommandXTests;
+			productReference = CCCCCC012F0372FB007B0798 /* CommandXTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -95,6 +132,10 @@
 				TargetAttributes = {
 					8487A06E2F0372FB007B0798 = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					CCCCCC072F0372FB007B0798 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 8487A06E2F0372FB007B0798;
 					};
 				};
 			};
@@ -113,9 +154,28 @@
 			projectRoot = "";
 			targets = (
 				8487A06E2F0372FB007B0798 /* CommandX */,
+				CCCCCC072F0372FB007B0798 /* CommandXTests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXContainerItemProxy section */
+		CCCCCC0A2F0372FB007B0798 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8487A0672F0372FB007B0798 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8487A06E2F0372FB007B0798;
+			remoteInfo = CommandX;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		CCCCCC0B2F0372FB007B0798 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8487A06E2F0372FB007B0798 /* CommandX */;
+			targetProxy = CCCCCC0A2F0372FB007B0798 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXResourcesBuildPhase section */
 		8487A06D2F0372FB007B0798 /* Resources */ = {
@@ -135,7 +195,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CCCCCC082F0372FB007B0798 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CCCCCC042F0372FB007B0798 /* CommandXTests.swift in Sources */,
+				CCCCCC052F0372FB007B0798 /* PathParsing.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section (test) */
+		CCCCCC092F0372FB007B0798 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section (test) */
 
 /* Begin XCBuildConfiguration section */
 		8487A0782F0372FB007B0798 /* Debug */ = {
@@ -344,6 +423,40 @@
 			};
 			name = Release;
 		};
+		CCCCCC0D2F0372FB007B0798 /* Debug (Tests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = enablestartup.CommandXTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CommandX.app/Contents/MacOS/CommandX";
+			};
+			name = Debug;
+		};
+		CCCCCC0E2F0372FB007B0798 /* Release (Tests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = enablestartup.CommandXTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CommandX.app/Contents/MacOS/CommandX";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -361,6 +474,15 @@
 			buildConfigurations = (
 				8487A07B2F0372FB007B0798 /* Debug */,
 				8487A07C2F0372FB007B0798 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CCCCCC0C2F0372FB007B0798 /* Build configuration list for PBXNativeTarget "CommandXTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CCCCCC0D2F0372FB007B0798 /* Debug */,
+				CCCCCC0E2F0372FB007B0798 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
